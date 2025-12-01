@@ -1,39 +1,48 @@
 import numpy as np
 
-def predict(model, scaler, x_input):
+def predict_raw(model, x):
     """
-    Hace una predicción simple con la XNN.
-    
-    Params:
-        model  -> instancia de ExplainableNeuralNet
-        scaler -> scaler usado para entrenar
-        x_input -> lista o array con los valores crudos
-    
-    Return:
-        predicted_class, probabilities
+    Ejecuta forward() sobre un solo registro sin escalar.
+    Retorna: (clase_predicha, probabilidades)
     """
-    x_scaled = scaler.transform([x_input])
-    probs = model.forward(x_scaled[0])
-    pred_class = int(np.argmax(probs))
-    return pred_class, probs.tolist()
+    probs = model.forward(x)
+    pred = int(np.argmax(probs))
+    return pred, probs
 
 
-def predict_with_explanation(model, scaler, x_input, explainer_llm, feature_context, business_context):
+def predict_scaled(model, scaler, x):
     """
-    Hace predicción con explicación usando Gemini.
+    Escala un solo registro antes de pasarlo a la red.
+    Retorna: (clase_predicha, probabilidades)
     """
-    x_scaled = scaler.transform([x_input])
-    log_nn = model.explain(x_scaled[0])
+    x_scaled = scaler.transform([x])[0]
+    probs = model.forward(x_scaled)
+    pred = int(np.argmax(probs))
+    return pred, probs
 
-    explanation = explainer_llm.explain(
-        log_nn,
-        feature_context=feature_context,
-        business_context=business_context
-    )
 
-    return {
-        "prediction": log_nn["prediccion_clase"],
-        "probabilities": log_nn["probabilidades"],
-        "technical_log": log_nn,
-        "explanation": explanation
-    }
+def predict_batch(model, scaler, X, scaled=True):
+    """
+    Predicción por lotes.
+    X puede ser un DataFrame o array.
+    Retorna: (lista_predicciones, lista_probabilidades)
+    """
+    preds = []
+    probs_list = []
+
+    # Convertir DataFrame a numpy si aplica
+    if hasattr(X, "values"):
+        X = X.values
+
+    if scaled:
+        X_scaled = scaler.transform(X)
+    else:
+        X_scaled = X
+
+    for x in X_scaled:
+        prob = model.forward(x)
+        pred = int(np.argmax(prob))
+        preds.append(pred)
+        probs_list.append(prob)
+
+    return np.array(preds), np.array(probs_list)
