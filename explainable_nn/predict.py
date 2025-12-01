@@ -1,37 +1,39 @@
 import numpy as np
-from pprint import pprint
-from explainable_nn.utils import load_model
-from explainable_nn.gemini_wrapper import NeuralExplainerLLM
 
-API_KEY = "TU_API_KEY"
+def predict(model, scaler, x_input):
+    """
+    Hace una predicción simple con la XNN.
+    
+    Params:
+        model  -> instancia de ExplainableNeuralNet
+        scaler -> scaler usado para entrenar
+        x_input -> lista o array con los valores crudos
+    
+    Return:
+        predicted_class, probabilities
+    """
+    x_scaled = scaler.transform([x_input])
+    probs = model.forward(x_scaled[0])
+    pred_class = int(np.argmax(probs))
+    return pred_class, probs.tolist()
 
-feature_context = {
-    "0": "Longitud del sépalo (cm)",
-    "1": "Ancho del sépalo (cm)",
-    "2": "Longitud del pétalo (cm)",
-    "3": "Ancho del pétalo (cm)"
-}
 
-business_context = """
-0 = Setosa
-1 = Versicolor
-2 = Virginica
-"""
+def predict_with_explanation(model, scaler, x_input, explainer_llm, feature_context, business_context):
+    """
+    Hace predicción con explicación usando Gemini.
+    """
+    x_scaled = scaler.transform([x_input])
+    log_nn = model.explain(x_scaled[0])
 
-nuevo = np.array([5.1, 3.8, 1.6, 0.2])
+    explanation = explainer_llm.explain(
+        log_nn,
+        feature_context=feature_context,
+        business_context=business_context
+    )
 
-saved = load_model("modelo.pkl")
-nn = saved["modelo"]
-scaler = saved["scaler"]
-
-nuevo_scaled = scaler.transform([nuevo])
-log = nn.explain(nuevo_scaled[0])
-
-print("\n--- Log Técnico ---")
-pprint(log)
-
-explainer = NeuralExplainerLLM(api_key=API_KEY)
-explicacion = explainer.explain(log, feature_context, business_context)
-
-print("\n--- Explicación Natural ---")
-print(explicacion)
+    return {
+        "prediction": log_nn["prediccion_clase"],
+        "probabilities": log_nn["probabilidades"],
+        "technical_log": log_nn,
+        "explanation": explanation
+    }
