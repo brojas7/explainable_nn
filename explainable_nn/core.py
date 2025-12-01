@@ -76,7 +76,7 @@ class ExplainableNeuralNet:
         return probs
 
     #########################################################
-    # BACKPROP
+    # BACKPROPAGATION
     #########################################################
     def train_step(self, x, y_true_index):
         a = x.reshape(1, -1)
